@@ -1,27 +1,28 @@
 package postgresql
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"app/api/models"
-	"database/sql"
 )
 
 type userRepo struct{
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 
-func NewUserRepo(db *sql.DB) *userRepo{
+func NewUserRepo(db *pgxpool.Pool) *userRepo{
 	return &userRepo{
 		db: db,
 	}
 } 
 
 
-func (u *userRepo) CreateUser(req *models.CreateUser) (string, error){
+func (u *userRepo) CreateUser(ctx context.Context, req *models.CreateUser) (string, error){
 
 	var (
 		query string
@@ -36,7 +37,7 @@ func (u *userRepo) CreateUser(req *models.CreateUser) (string, error){
 			)
 			VALUES($1, $2, $3, now())
 		`
-	_, err := u.db.Exec(query, 
+	_, err := u.db.Exec(ctx, query, 
 		id,
 		req.Name,
 		req.Balance,
@@ -50,7 +51,7 @@ func (u *userRepo) CreateUser(req *models.CreateUser) (string, error){
 
 }
 
-func (u *userRepo) UserGetByID(req *models.UserPrimaryKey) (*models.User, error){
+func (u *userRepo) UserGetByID(ctx context.Context, req *models.UserPrimaryKey) (*models.User, error){
 
 	var (
 		query string
@@ -61,14 +62,14 @@ func (u *userRepo) UserGetByID(req *models.UserPrimaryKey) (*models.User, error)
 			SELECT
 				id,
 				name,
-				balance,
-				created_at,
-				updated_at
+				COALESCE(balance, 0),
+				TO_CHAR(created_at, 'YYYY-MM-DD HH24-MI-SS'),
+				TO_CHAR(updated_at, 'YYYY-MM-DD HH24-MI-SS')
 			FROM users
 			WHERE id = $1
 		`
 	
-	err := u.db.QueryRow(query, req.Id).Scan(
+	err := u.db.QueryRow(ctx, query, req.Id).Scan(
 		&user.Id,
 		&user.Name,
 		&user.Balance,
@@ -83,7 +84,7 @@ func (u *userRepo) UserGetByID(req *models.UserPrimaryKey) (*models.User, error)
 	return &user, nil
 }
 
-func (u *userRepo) UserGetList(req *models.GetListUserRequest) (*models.GetListUserResponse, error){
+func (u *userRepo) UserGetList(ctx context.Context, req *models.GetListUserRequest) (*models.GetListUserResponse, error){
 
 	resp := &models.GetListUserResponse{}
 
@@ -99,9 +100,9 @@ func (u *userRepo) UserGetList(req *models.GetListUserRequest) (*models.GetListU
 			COUNT(*) OVER(),
 			id,
 			name,
-			balance,
+			COALESCE(balance, 0),
 			TO_CHAR(created_at, 'YYYY-MM-DD HH24-MI-SS'),
-			updated_at
+			TO_CHAR(updated_at, 'YYYY-MM-DD HH24-MI-SS')
 		FROM users
 	`
 
@@ -119,7 +120,7 @@ func (u *userRepo) UserGetList(req *models.GetListUserRequest) (*models.GetListU
 
 	query += filter + offset + limit
 
-	rows, err := u.db.Query(query)
+	rows, err := u.db.Query(ctx, query)
 	if err != nil{
 		return nil, err
 	}
@@ -146,7 +147,7 @@ func (u *userRepo) UserGetList(req *models.GetListUserRequest) (*models.GetListU
 }
 
 
-func (u *userRepo) UpdateUser(req *models.UpdateUser) (int64, error){
+func (u *userRepo) UpdateUser(ctx context.Context, req *models.UpdateUser) (int64, error){
 
 	query := `
 		UPDATE
@@ -158,7 +159,7 @@ func (u *userRepo) UpdateUser(req *models.UpdateUser) (int64, error){
 		WHERE id = $3
 	`
 
-	rows, err := u.db.Exec(query, 
+	result, err := u.db.Exec(ctx, query, 
 		req.Name,
 		req.Balance,
 		req.Id,
@@ -168,19 +169,14 @@ func (u *userRepo) UpdateUser(req *models.UpdateUser) (int64, error){
 		return 0, err
 	}
 
-	RowsAffected, err := rows.RowsAffected()
-	if err != nil{
-		return 0, err
-	}
-
-	return RowsAffected, nil
+	return result.RowsAffected(), nil
 }
 
 
-func (u *userRepo) DeleteUser(req *models.UserPrimaryKey) error {
+func (u *userRepo) DeleteUser(ctx context.Context, req *models.UserPrimaryKey) error {
 
 	_, err := u.db.Exec(
-		"DELETE FROM users WHERE id = $1", req.Id,
+		ctx, "DELETE FROM users WHERE id = $1", req.Id,
 	)
 
 	if err != nil{

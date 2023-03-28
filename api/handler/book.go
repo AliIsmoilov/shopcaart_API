@@ -3,11 +3,24 @@ package handler
 import (
 	"app/api/models"
 	"app/pkg/helper"
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
+// Create Book godoc
+// @ID create_book
+// @Router /book [POST]
+// @Summary Create Book
+// @Description Create Book
+// @Tags Book
+// @Accept json
+// @Produce json
+// @Param book body models.CreateBook true "CreateBookRequest"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error"
 func (h *Handler) CreateBook(c *gin.Context) {
 
 	var createBook models.CreateBook
@@ -18,13 +31,13 @@ func (h *Handler) CreateBook(c *gin.Context) {
 		return
 	}
 
-	id, err := h.storages.Book().Create(&createBook)
+	id, err := h.storages.Book().Create(context.Background(), &createBook)
 	if err != nil {
 		h.handlerResponse(c, "storage.book.create", http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	resp, err := h.storages.Book().GetByID(&models.BookPrimaryKey{Id: id})
+	resp, err := h.storages.Book().GetByID(context.Background(), &models.BookPrimaryKey{Id: id})
 	if err != nil {
 		h.handlerResponse(c, "storage.book.getByID", http.StatusInternalServerError, err.Error())
 		return
@@ -33,6 +46,18 @@ func (h *Handler) CreateBook(c *gin.Context) {
 	h.handlerResponse(c, "create book", http.StatusCreated, resp)
 }
 
+// Get By ID Book godoc
+// @ID get_by_id_book
+// @Router /book/{id} [GET]
+// @Summary Get By ID Book
+// @Description Get By ID Book
+// @Tags Book
+// @Accept json
+// @Produce json
+// @Param id path string true "id"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error"
 func (h *Handler) GetByIdBook(c *gin.Context) {
 
 	id := c.Param("id")
@@ -42,7 +67,7 @@ func (h *Handler) GetByIdBook(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.storages.Book().GetByID(&models.BookPrimaryKey{Id: id})
+	resp, err := h.storages.Book().GetByID(context.Background(), &models.BookPrimaryKey{Id: id})
 	if err != nil {
 		h.handlerResponse(c, "storage.book.getByID", http.StatusInternalServerError, err.Error())
 		return
@@ -51,6 +76,21 @@ func (h *Handler) GetByIdBook(c *gin.Context) {
 	h.handlerResponse(c, "create book", http.StatusCreated, resp)
 }
 
+
+// Get List Book godoc
+// @ID get_list_book
+// @Router /book [GET]
+// @Summary Get List Book
+// @Description Get List Book
+// @Tags Book
+// @Accept json
+// @Produce json
+// @Param offset query string false "offset"
+// @Param limit query string false "limit"
+// @Param search query string false "search"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error"
 func (h *Handler) GetListBook(c *gin.Context) {
 
 	offset, err := h.getOffsetQuery(c.Query("offset"))
@@ -65,7 +105,7 @@ func (h *Handler) GetListBook(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.storages.Book().GetList(&models.GetListBookRequest{
+	resp, err := h.storages.Book().GetList(context.Background(), &models.GetListBookRequest{
 		Offset: offset,
 		Limit:  limit,
 		Search: c.Query("search"),
@@ -78,6 +118,20 @@ func (h *Handler) GetListBook(c *gin.Context) {
 	h.handlerResponse(c, "get list book response", http.StatusOK, resp)
 }
 
+
+// Update Book godoc
+// @ID update_book
+// @Router /book/{id} [PUT]
+// @Summary Update Book
+// @Description Update Book
+// @Tags Book
+// @Accept json
+// @Produce json
+// @Param id path string true "id"
+// @Param book body models.UpdateBook true "UpdateBookRequest"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error"
 func (h *Handler) UpdateBook(c *gin.Context) {
 
 	var updateBook models.UpdateBook
@@ -97,7 +151,7 @@ func (h *Handler) UpdateBook(c *gin.Context) {
 
 	updateBook.Id = id
 
-	rowsAffected, err := h.storages.Book().Update(&updateBook)
+	rowsAffected, err := h.storages.Book().Update(context.Background(), &updateBook)
 	if err != nil {
 		h.handlerResponse(c, "storage.book.update", http.StatusInternalServerError, err.Error())
 		return
@@ -108,7 +162,7 @@ func (h *Handler) UpdateBook(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.storages.Book().GetByID(&models.BookPrimaryKey{Id: id})
+	resp, err := h.storages.Book().GetByID(context.Background(), &models.BookPrimaryKey{Id: id})
 	if err != nil {
 		h.handlerResponse(c, "storage.book.getByID", http.StatusInternalServerError, err.Error())
 		return
@@ -117,6 +171,19 @@ func (h *Handler) UpdateBook(c *gin.Context) {
 	h.handlerResponse(c, "update book", http.StatusAccepted, resp)
 }
 
+
+// Delete Book godoc
+// @ID delete_book
+// @Router /book/{id} [DELETE]
+// @Summary Delete Book
+// @Description Delete Book
+// @Tags Book
+// @Accept json
+// @Produce json
+// @Param id path string true "id"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error
 func (h *Handler) DeleteBook(c *gin.Context) {
 
 	id := c.Param("id")
@@ -126,7 +193,7 @@ func (h *Handler) DeleteBook(c *gin.Context) {
 		return
 	}
 
-	err := h.storages.Book().Delete(&models.BookPrimaryKey{Id: id})
+	err := h.storages.Book().Delete(context.Background(), &models.BookPrimaryKey{Id: id})
 	if err != nil {
 		h.handlerResponse(c, "storage.book.update", http.StatusInternalServerError, err.Error())
 		return

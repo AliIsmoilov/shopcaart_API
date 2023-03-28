@@ -1,47 +1,58 @@
 package postgresql
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v4/pgxpool"
+	// _ "github.com/lib/pq"
 
 	"app/config"
 	"app/storage"
 )
 
 type Store struct {
-	db   	*sql.DB
-	book 	storage.BookRepoI
-	user 	storage.UserRepoI
-	author 	storage.AuthorRepoI
+	db   		*pgxpool.Pool
+	book 		storage.BookRepoI
+	user 		storage.UserRepoI
+	author 		storage.AuthorRepoI
+	customer	storage.CustomerRepoI
+	couerier 	storage.CourierRepoI
+	product		storage.ProductRepoI
+	category	storage.CategoryRepoI
+	order		storage.OrderRepoI
 }
 
 func NewConnectPostgresql(cfg *config.Config) (storage.StorageI, error) {
 
-	connection := fmt.Sprintf(
-		"host=%s user=%s database=%s password=%s port=%s sslmode=disable",
+	config, err := pgxpool.ParseConfig(fmt.Sprintf(
+		"host=%s user=%s dbname=%s password=%s port=%s sslmode=disable",
 		cfg.PostgresHost,
 		cfg.PostgresUser,
 		cfg.PostgresDatabase,
 		cfg.PostgresPassword,
 		cfg.PostgresPort,
-	)
-
-	db, err := sql.Open("postgres", connection)
+	))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.Ping(); err != nil {
+	pgpool, err := pgxpool.ConnectConfig(context.Background(), config)
+	if err != nil {
 		return nil, err
 	}
 
+
 	return &Store{
-		db:   db,
-		book: NewBookRepo(db),
-		user: NewUserRepo(db),
-		author: NewAuthorRepo(db),
+		db:   		pgpool,
+		book: 		NewBookRepo(pgpool),
+		user: 		NewUserRepo(pgpool),
+		author: 	NewAuthorRepo(pgpool),
+		customer: 	NewCustomerRepo(pgpool),
+		couerier: 	NewCourierRepo(pgpool),
+		product: 	NewProductRepoI(pgpool),
+		category: 	NewCategoryRepoI(pgpool),
+		order: 		NewOrderRepo(pgpool),
 	}, nil
 }
 
@@ -74,4 +85,44 @@ func (s *Store) Author() storage.AuthorRepoI {
 	}
 
 	return s.author
+}
+
+func (s *Store) Customer() storage.CustomerRepoI {
+
+	if s.customer == nil {
+		s.customer = NewCustomerRepo(s.db)
+	}
+	return s.customer
+}
+
+func (s *Store) Courier() storage.CourierRepoI {
+
+	if s.couerier == nil {
+		s.couerier = NewCourierRepo(s.db)
+	}
+	return s.couerier
+}
+
+func (s *Store) Product() storage.ProductRepoI {
+	if s.product == nil{
+		s.product = NewProductRepoI(s.db)
+	}
+
+	return s.product
+}
+
+func (s *Store) Category() storage.CategoryRepoI {
+	if s.category == nil{
+		s.category = NewCategoryRepoI(s.db)
+	}
+
+	return s.category
+}
+
+func (s *Store) Order() storage.OrderRepoI {
+	if s.order == nil{
+		s.order = NewOrderRepo(s.db)
+	}
+
+	return s.order
 }

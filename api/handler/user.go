@@ -3,12 +3,24 @@ package handler
 import (
 	"app/api/models"
 	"app/pkg/helper"
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-
+// Create User godoc
+// @ID create_user
+// @Router /user [POST]
+// @Summary Create user
+// @Description Create User
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param book body models.CreateUser true "CreateUserRequest"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error"
 func (h *Handler) CreateUser(c *gin.Context){
 
 	var createUser models.CreateUser
@@ -19,13 +31,13 @@ func (h *Handler) CreateUser(c *gin.Context){
 		return
 	}
 
-	id, err := h.storages.User().CreateUser(&createUser)
+	id, err := h.storages.User().CreateUser(context.Background(), &createUser)
 	if err != nil{
 		h.handlerResponse(c, "Storage create user", http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	resp, err := h.storages.User().UserGetByID(&models.UserPrimaryKey{Id: id})
+	resp, err := h.storages.User().UserGetByID(context.Background(), &models.UserPrimaryKey{Id: id})
 	if err != nil{
 		h.handlerResponse(c, "Create User Get By id", http.StatusInternalServerError, err.Error())
 		return
@@ -36,6 +48,21 @@ func (h *Handler) CreateUser(c *gin.Context){
 	
 }
 
+
+// Get List User godoc
+// @ID get_list_user
+// @Router /user [GET]
+// @Summary Get List User
+// @Description Get List User
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param offset query string false "offset"
+// @Param limit query string false "limit"
+// @Param search query string false "search"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error"
 func (h *Handler) GetListUSer(c *gin.Context) {
 
 	offset, err := h.getOffsetQuery(c.Query("offset"))
@@ -51,7 +78,7 @@ func (h *Handler) GetListUSer(c *gin.Context) {
 	}
 
 	
-	resp, err := h.storages.User().UserGetList(&models.GetListUserRequest{
+	resp, err := h.storages.User().UserGetList(context.Background(), &models.GetListUserRequest{
 		Offset: offset,
 		Limit: limit,
 		Search: c.Query("search"),
@@ -65,6 +92,19 @@ func (h *Handler) GetListUSer(c *gin.Context) {
 	h.handlerResponse(c, "Get List User", http.StatusOK, resp)
 }
 
+
+// Get By ID User godoc
+// @ID get_by_id_user
+// @Router /user/{id} [GET]
+// @Summary Get By ID User
+// @Description Get By ID User
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param id path string true "id"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error"
 func (h *Handler) GetByIDUser(c *gin.Context) {
 
 	id := c.Param("id")
@@ -74,7 +114,7 @@ func (h *Handler) GetByIDUser(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.storages.User().UserGetByID(&models.UserPrimaryKey{Id: id})
+	resp, err := h.storages.User().UserGetByID(context.Background(), &models.UserPrimaryKey{Id: id})
 	
 	if err != nil{
 		h.handlerResponse(c, "Get User By id", http.StatusInternalServerError, err.Error())
@@ -85,6 +125,19 @@ func (h *Handler) GetByIDUser(c *gin.Context) {
 }
 
 
+// Update User godoc
+// @ID update_user
+// @Router /user/{id} [PUT]
+// @Summary Update User
+// @Description Update User
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param id path string true "id"
+// @Param user body models.UpdateUser true "UpdateUserRequest"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error"
 func (h *Handler) UpdateUser(c *gin.Context) {
 
 	id := c.Param("id")
@@ -103,7 +156,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 
 	updateUser.Id = id
 
-	rowsAffected, err := h.storages.User().UpdateUser(&updateUser)
+	rowsAffected, err := h.storages.User().UpdateUser(context.Background(), &updateUser)
 	if err != nil{
 		h.handlerResponse(c, "Update User", http.StatusInternalServerError, err.Error())
 		return
@@ -114,7 +167,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.storages.User().UserGetByID(&models.UserPrimaryKey{Id: id})
+	resp, err := h.storages.User().UserGetByID(context.Background(), &models.UserPrimaryKey{Id: id})
 	if err != nil{
 		h.handlerResponse(c, "Update User Get By ID", http.StatusInternalServerError, err.Error())
 		return
@@ -124,6 +177,20 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 
 }
 
+
+
+// Delete User godoc
+// @ID delete_user
+// @Router /user/{id} [DELETE]
+// @Summary Delete User
+// @Description Delete User
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param id path string true "id"
+// @Success 200 {object} Response{data=string} "Success Request"
+// @Response 400 {object} Response{data=string} "Bad Request"
+// @Failure 500 {object} Response{data=string} "Server Error
 func (h *Handler) DeleteUser(c *gin.Context) {
 
 	id := c.Param("id")
@@ -133,7 +200,7 @@ func (h *Handler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	err := h.storages.User().DeleteUser(&models.UserPrimaryKey{Id: id})
+	err := h.storages.User().DeleteUser(context.Background(), &models.UserPrimaryKey{Id: id})
 	if err != nil{
 		h.handlerResponse(c, "Storage Delete User", http.StatusInternalServerError, err.Error())
 		return

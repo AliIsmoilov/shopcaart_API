@@ -2,24 +2,25 @@ package postgresql
 
 import (
 	"app/api/models"
-	"database/sql"
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 
 type authorRepo struct{
-	db *sql.DB	
+	db *pgxpool.Pool
 }
 
-func NewAuthorRepo(db *sql.DB) *authorRepo {
+func NewAuthorRepo(db *pgxpool.Pool) *authorRepo {
 	return &authorRepo{
 		db: db,
 	}
 }
 
-func (a *authorRepo) CreateAuthor(req *models.CreateAuthor) (string, error) {
+func (a *authorRepo) CreateAuthor(ctx context.Context, req *models.CreateAuthor) (string, error) {
 
 	var (
 		query 	string
@@ -33,7 +34,7 @@ func (a *authorRepo) CreateAuthor(req *models.CreateAuthor) (string, error) {
 			VALUES($1, $2)
 		`
 
-	_, err := a.db.Exec(query, 
+	_, err := a.db.Exec(ctx, query, 
 		id,
 		req.Name,
 	)
@@ -45,19 +46,19 @@ func (a *authorRepo) CreateAuthor(req *models.CreateAuthor) (string, error) {
 	return id, nil
 }
 
-func (a *authorRepo) AuthorGetById(req *models.AuthorPrimaryKey) (*models.Author, error) {
+func (a *authorRepo) AuthorGetById(ctx context.Context, req *models.AuthorPrimaryKey) (*models.Author, error) {
 
 	var resp models.Author
 
 	query := `SELECT
 				id,
 				name,
-				created_at
+				TO_CHAR(created_at, 'YYYY-MM-DD HH24-MI-SS')
 			FROM author
 			WHERE id = $1  	
 	`
 
-	err := a.db.QueryRow(query, req.Id).Scan(
+	err := a.db.QueryRow(ctx, query, req.Id).Scan(
 		&resp.Id,
 		&resp.Name,
 		&resp.CreatedAt,
@@ -70,7 +71,7 @@ func (a *authorRepo) AuthorGetById(req *models.AuthorPrimaryKey) (*models.Author
 	return &resp, nil
 }
 
-func (a *authorRepo) GetListAuthor(req *models.GetListAuthorRequest) (*models.GetListAuthorResponse, error) {
+func (a *authorRepo) GetListAuthor(ctx context.Context, req *models.GetListAuthorRequest) (*models.GetListAuthorResponse, error) {
 
 	var (
 		query 		string
@@ -104,7 +105,7 @@ func (a *authorRepo) GetListAuthor(req *models.GetListAuthorRequest) (*models.Ge
 
 	var resp models.GetListAuthorResponse
 
-	rows, err := a.db.Query(query)
+	rows, err := a.db.Query(ctx, query)
 	if err != nil{
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func (a *authorRepo) GetListAuthor(req *models.GetListAuthorRequest) (*models.Ge
 
 }
 
-func (a *authorRepo) UpdateAuthor(req *models.UpdateAuthor) (int64, error) {
+func (a *authorRepo) UpdateAuthor(ctx context.Context, req *models.UpdateAuthor) (int64, error) {
 
 	query := `
 		UPDATE
@@ -139,7 +140,7 @@ func (a *authorRepo) UpdateAuthor(req *models.UpdateAuthor) (int64, error) {
 		WHERE id = $2
 	`
 
-	rows, err := a.db.Exec(query, 
+	rows, err := a.db.Exec(ctx, query, 
 		req.Name,
 		req.Id,
 	)
@@ -148,10 +149,18 @@ func (a *authorRepo) UpdateAuthor(req *models.UpdateAuthor) (int64, error) {
 		return 0, err
 	}
 
-	RowsAffected, err := rows.RowsAffected()
-	if err != nil{
-		return 0, err
-	}
+	return rows.RowsAffected(), nil
+}
 
-	return RowsAffected, nil
+func (a *authorRepo) DeleteAuthor(ctx context.Context, req *models.AuthorPrimaryKey) error {
+
+	_, err := a.db.Exec(
+		ctx, "DELETE FROM author WHERE id = $1", req.Id,
+	)
+
+	if err != nil {
+		return err
+	}
+	
+	return nil
 }

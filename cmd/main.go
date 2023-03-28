@@ -52,6 +52,11 @@ func main() {
 	api.NewApi(r, &cfg, store, log)
 	api.NewApiUser(r, &cfg, store, log)
 	api.NewApiAuthor(r, &cfg, store, log)
+	api.NewApiCustomer(r, &cfg, store, log)
+	api.NewApiCourier(r, &cfg, store, log)
+	api.NewApiProduct(r, &cfg, store, log)
+	api.NewApiCategory(r, &cfg, store, log)
+	api.NewApiOrder(r, &cfg, store, log)
 
 	fmt.Println("Listening Server", cfg.ServerHost+cfg.ServerPort)
 	err = r.Run(cfg.ServerHost + cfg.ServerPort)

@@ -1,26 +1,27 @@
 package postgresql
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"app/api/models"
 	"app/pkg/helper"
 )
 
 type bookRepo struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewBookRepo(db *sql.DB) *bookRepo {
+func NewBookRepo(db *pgxpool.Pool) *bookRepo {
 	return &bookRepo{
 		db: db,
 	}
 }
 
-func (r *bookRepo) Create(req *models.CreateBook) (string, error) {
+func (r *bookRepo) Create(ctx context.Context, req *models.CreateBook) (string, error) {
 
 	var (
 		query string
@@ -42,7 +43,7 @@ func (r *bookRepo) Create(req *models.CreateBook) (string, error) {
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
 	`
 
-	_, err := r.db.Exec(query,
+	_, err := r.db.Exec(ctx, query,
 		id.String(),
 		req.Name,
 		req.Price,
@@ -60,20 +61,11 @@ func (r *bookRepo) Create(req *models.CreateBook) (string, error) {
 	return id.String(), nil
 }
 
-func (r *bookRepo) GetByID(req *models.BookPrimaryKey) (*models.Book, error) {
+func (r *bookRepo) GetByID(ctx context.Context, req *models.BookPrimaryKey) (*models.Book, error) {
 
 	var (
 		query     string
-		id        		sql.NullString
-		name      		sql.NullString
-		price     		sql.NullFloat64
-		count			sql.NullInt64
-		came_price		sql.NullFloat64
-		profit_status	sql.NullString
-		profit			sql.NullFloat64
-		sell_price		sql.NullFloat64
-		createdAt 		sql.NullString
-		updatedAt 		sql.NullString
+		resp 	  models.Book
 	)
 
 	query = `
@@ -81,49 +73,38 @@ func (r *bookRepo) GetByID(req *models.BookPrimaryKey) (*models.Book, error) {
 			id, 
 			name, 
 			price,
-			count,
+			COALESCE(count,0),
 			came_price,
 			profit_status,
-			profit,
+			COALESCE(profit,0),
 			sell_price,
-			created_at, 
-			updated_at
+			TO_CHAR(created_at, 'YYYY-MM-DD HH24-MI-SS'), 
+			TO_CHAR(updated_at, 'YYYY-MM-DD HH24-MI-SS')
 		FROM book
 		WHERE id = $1
 	`
 
-	err := r.db.QueryRow(query, req.Id).Scan(
-		&id,
-		&name,
-		&price,
-		&count,
-		&came_price,
-		&profit_status,
-		&profit,
-		&sell_price,
-		&createdAt,
-		&updatedAt,
+	err := r.db.QueryRow(ctx, query, req.Id).Scan(
+		&resp.Id,
+		&resp.Name,
+		&resp.Price,
+		&resp.Count,
+		&resp.Came_price,
+		&resp.Profit_status,
+		&resp.Profit,
+		&resp.Sell_price,
+		&resp.CreatedAt,
+		&resp.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &models.Book{
-		Id:        	id.String,
-		Name:      	name.String,
-		Price:     	price.Float64,
-		Count: 		int(count.Int64),
-		Came_price: came_price.Float64,
-		Profit_status: profit_status.String,
-		Profit: 	profit.Float64,
-		Sell_price: sell_price.Float64,
-		CreatedAt: createdAt.String,
-		UpdatedAt: updatedAt.String,
-	}, nil
+	return &resp, nil
 }
 
-func (r *bookRepo) GetList(req *models.GetListBookRequest) (resp *models.GetListBookResponse, err error) {
+func (r *bookRepo) GetList(ctx context.Context, req *models.GetListBookRequest) (resp *models.GetListBookResponse, err error) {
 
 	resp = &models.GetListBookResponse{}
 
@@ -140,13 +121,13 @@ func (r *bookRepo) GetList(req *models.GetListBookRequest) (resp *models.GetList
 			id, 
 			name, 
 			price,
-			count,
+			COALESCE(count,0),
 			came_price,
 			profit_status,
-			profit,
+			COALESCE(profit,0),
 			sell_price,
-			created_at, 
-			updated_at
+			TO_CHAR(created_at, 'YYYY-MM-DD HH24-MI-SS'), 
+			TO_CHAR(updated_at, 'YYYY-MM-DD HH24-MI-SS')
 		FROM book
 	`
 
@@ -164,7 +145,7 @@ func (r *bookRepo) GetList(req *models.GetListBookRequest) (resp *models.GetList
 
 	query += filter + offset + limit
 
-	rows, err := r.db.Query(query)
+	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +178,7 @@ func (r *bookRepo) GetList(req *models.GetListBookRequest) (resp *models.GetList
 	return resp, nil
 }
 
-func (r *bookRepo) Update(req *models.UpdateBook) (int64, error) {
+func (r *bookRepo) Update(ctx context.Context, req *models.UpdateBook) (int64, error) {
 
 	var (
 		query  string
@@ -233,23 +214,18 @@ func (r *bookRepo) Update(req *models.UpdateBook) (int64, error) {
 
 	query, args := helper.ReplaceQueryParams(query, params)
 
-	result, err := r.db.Exec(query, args...)
+	result, err := r.db.Exec(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-
-	return rowsAffected, nil
+	return result.RowsAffected(), nil
 }
 
-func (r *bookRepo) Delete(req *models.BookPrimaryKey) error {
+func (r *bookRepo) Delete(ctx context.Context, req *models.BookPrimaryKey) error {
 
 	_, err := r.db.Exec(
-		"DELETE FROM book WHERE id = $1", req.Id,
+		ctx, "DELETE FROM book WHERE id = $1", req.Id,
 	)
 
 	if err != nil {
